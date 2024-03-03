@@ -2,11 +2,11 @@
 
 // fanimation is 6 speed, map the speeds into 3 for homeassistant to not freak out, but retain all locally
 const char *fanStateTable[] = {
-  "off", "high", "high", "medium", "medium", "low", "low"
+        "off", "high", "high", "medium", "medium", "low", "low"
 };
 
 const char *fanFullStateTable[] = {
-  "off", "VI", "V", "IV", "III", "II", "I"
+        "off", "VI", "V", "IV", "III", "II", "I", "Breeze"
 };
 
 RCSwitch mySwitch = RCSwitch();
@@ -19,17 +19,17 @@ WiFiServer TelnetServer(8266);
 //   e.g. a dip setting of on off off off (1000) yields 1110
 // Convert between IDs from MQTT from dip switch settings and what is used in the RF codes
 const byte dipToRfIds[16] = {
-    [ 0] = 0, [ 1] = 8, [ 2] = 4, [ 3] = 12,
-    [ 4] = 2, [ 5] = 10, [ 6] =  6, [ 7] = 14,
-    [ 8] = 1, [ 9] = 9, [10] = 5, [11] = 13,
-    [12] = 3, [13] = 11, [14] =  7, [15] = 15,
+        [0] = 0, [1] = 8, [2] = 4, [3] = 12,
+        [4] = 2, [5] = 10, [6] =  6, [7] = 14,
+        [8] = 1, [9] = 9, [10] = 5, [11] = 13,
+        [12] = 3, [13] = 11, [14] =  7, [15] = 15,
 };
 
 const char *idStrings[16] = {
-    [ 0] = "0000", [ 1] = "0001", [ 2] = "0010", [ 3] = "0011",
-    [ 4] = "0100", [ 5] = "0101", [ 6] = "0110", [ 7] = "0111",
-    [ 8] = "1000", [ 9] = "1001", [10] = "1010", [11] = "1011",
-    [12] = "1100", [13] = "1101", [14] = "1110", [15] = "1111",
+        [0] = "0000", [1] = "0001", [2] = "0010", [3] = "0011",
+        [4] = "0100", [5] = "0101", [6] = "0110", [7] = "0111",
+        [8] = "1000", [9] = "1001", [10] = "1010", [11] = "1011",
+        [12] = "1100", [13] = "1101", [14] = "1110", [15] = "1111",
 };
 
 char idchars[] = "01";
@@ -38,15 +38,15 @@ char outTopic[100];
 char outPercent[100];
 
 #ifdef HEAP_DELAY_SECONDS
-static long heapSize=0;
-static unsigned long heapDelay=0;
+static long heapSize = 0;
+static unsigned long heapDelay = 0;
 #endif
 
-static unsigned long reconnectReboot=0;
-static unsigned long reconnectDelay=0;
-static unsigned long setupDelay=0;
-static boolean readMQTT=true;
-static boolean ignorerf=false;
+static unsigned long reconnectReboot = 0;
+static unsigned long reconnectDelay = 0;
+static unsigned long setupDelay = 0;
+static boolean readMQTT = true;
+static boolean ignorerf = false;
 
 #ifndef DOORBELL_COOLDOWN
 #define DOORBELL_COOLDOWN 2000 // how many milliseconds before retrigger is allowed
@@ -88,135 +88,147 @@ ICACHE_RAM_ATTR void doorbell3_int() {
 #endif
 
 void setup_wifi() {
-  delay(10);
-  // We start by connecting to a WiFi network
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(WIFI_SSID);
+    delay(10);
 
-  WiFi.persistent(false);
-  WiFi.disconnect();
-  delay(200);
-  WiFi.mode(WIFI_STA);
-  WiFi.hostname(HOSTNAME);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+    // check for the presence of the shield:
+    if (WiFi.status() == WL_NO_SHIELD) {
+        Serial.println("WiFi shield not present");
+        // don't continue:
+        while (true);
+    }
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
+    // We start by connecting to a WiFi network
+    Serial.println();
+    Serial.print("Connecting to ");
+    Serial.println(WIFI_SSID);
 
-  WiFi.setAutoReconnect(true);
-  randomSeed(micros());
+    WiFi.persistent(false);
+    WiFi.disconnect();
+    delay(200);
+    WiFi.mode(WIFI_STA);
+    WiFi.hostname(HOSTNAME);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
 
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    WiFi.setAutoReconnect(true);
+    randomSeed(micros());
+
+    Serial.println("");
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
-  char payloadChar[length + 1];
+void callback(char *topic, byte *payload, unsigned int length) {
+    char payloadChar[length + 1];
 //  sprintf(payloadChar, "%s", payload);
 //  payloadChar[length] = '\0';
 
-  // Convert payload to lowercase
-  for(unsigned i=0; payload[i] && i<length; i++) {
-    payloadChar[i] = tolower(payload[i]);
-  }
-  payloadChar[length]='\0';
+    // Convert payload to lowercase
+    for (unsigned i = 0; payload[i] && i < length; i++) {
+        payloadChar[i] = tolower(payload[i]);
+    }
+    payloadChar[length] = '\0';
 
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  Serial.print(payloadChar);
-  Serial.println();
-  
-  if(strncmp(topic, CMND_TOPIC MQTT_CLIENT_NAME "/restart", sizeof(CMND_TOPIC MQTT_CLIENT_NAME "/restart")-1) == 0) {
-    ESP.restart();
-    return;
-  } else 
-  if(strncmp(topic, CMND_TOPIC MQTT_CLIENT_NAME "/reset", sizeof(CMND_TOPIC MQTT_CLIENT_NAME "/reset")-1) == 0) {
-    ESP.reset();
-    return;
-  } else
-  if(strncmp(topic, CMND_TOPIC MQTT_CLIENT_NAME "/ignorerf", sizeof(CMND_TOPIC MQTT_CLIENT_NAME "/ignorerf")-1) == 0) {
-    if(strcmp(payloadChar,"on") == 0)
-      ignorerf=true;
-    else
-      ignorerf=false;
-    client.publish(STAT_TOPIC MQTT_CLIENT_NAME "/ignorerf", ignorerf ? "ON":"OFF", true);
-    return;
-  } else
-  if(strncmp(topic, CMND_TOPIC MQTT_CLIENT_NAME "/txrcswitch", sizeof(CMND_TOPIC MQTT_CLIENT_NAME "/txrcswitch")-1) == 0) {
-    unsigned long rfCode=0;
-    unsigned proto=11;
-    unsigned bits=0;
-    unsigned repeats=7;
-    float freq=303.000;
-    unsigned n=0;
-    char *s;
+    Serial.print("Message arrived [");
+    Serial.print(topic);
+    Serial.print("] ");
+    Serial.print(payloadChar);
+    Serial.println();
 
-    // freq,repeats,proto,bits
-    for(s=strtok(payloadChar,(const char*)','); s; s=strtok(NULL,(const char*)',')) {
-      if(n==0)
-        freq=atof(s);
-      if(n==1)
-        repeats=atoi(s);
-      if(n==2)
-        proto=atoi(s);
-      if(n==3) {
-        rfCode=0;
-        for(bits=0;s[bits]!=0 && bits<32;bits++) {
-          rfCode<<=1L;
-          if(s[bits]=='1')
-            rfCode|=0x1;
+    if (strncmp(topic, CMND_TOPIC MQTT_CLIENT_NAME "/restart", sizeof(CMND_TOPIC MQTT_CLIENT_NAME "/restart") - 1) ==
+        0) {
+        ESP.restart();
+        return;
+    } else if (strncmp(topic, CMND_TOPIC MQTT_CLIENT_NAME "/reset", sizeof(CMND_TOPIC MQTT_CLIENT_NAME "/reset") - 1) ==
+               0) {
+        ESP.reset();
+        return;
+    } else if (strncmp(topic, CMND_TOPIC MQTT_CLIENT_NAME "/ignorerf",
+                       sizeof(CMND_TOPIC MQTT_CLIENT_NAME "/ignorerf") - 1) == 0) {
+        if (strcmp(payloadChar, "on") == 0)
+            ignorerf = true;
+        else
+            ignorerf = false;
+        client.publish(STAT_TOPIC MQTT_CLIENT_NAME "/ignorerf", ignorerf ? "ON" : "OFF", true);
+        return;
+    } else if (strncmp(topic, CMND_TOPIC MQTT_CLIENT_NAME "/txrcswitch",
+                       sizeof(CMND_TOPIC MQTT_CLIENT_NAME "/txrcswitch") - 1) == 0) {
+        unsigned long rfCode = 0;
+        unsigned proto = 11;
+        unsigned bits = 0;
+        unsigned repeats = 7;
+        float freq = 303.000;
+        unsigned n = 0;
+        char *s;
+
+        // freq,repeats,proto,bits
+        for (s = strtok(payloadChar, (const char *) ','); s; s = strtok(NULL, (const char *) ',')) {
+            if (n == 0)
+                freq = atof(s);
+            if (n == 1)
+                repeats = atoi(s);
+            if (n == 2)
+                proto = atoi(s);
+            if (n == 3) {
+                rfCode = 0;
+                for (bits = 0; s[bits] != 0 && bits < 32; bits++) {
+                    rfCode <<= 1L;
+                    if (s[bits] == '1')
+                        rfCode |= 0x1;
+                }
+            }
+            n++;
         }
-      }
-      n++;
+
+        if (freq > 300.000 && freq < 464.000) {
+            mySwitch.disableReceive();         // Receiver off
+            ELECHOUSE_cc1101.setMHZ(freq);
+            ELECHOUSE_cc1101.SetTx();           // set Transmit on
+            mySwitch.enableTransmit(TX_PIN);   // Transmit on
+            mySwitch.setRepeatTransmit(repeats); // transmission repetitions.
+            mySwitch.setProtocol(proto);        // send Received Protocol
+
+            mySwitch.send(rfCode, bits);      // send 12 bit code
+            mySwitch.disableTransmit();   // set Transmit off
+            ELECHOUSE_cc1101.setMHZ(RX_FREQ);
+            ELECHOUSE_cc1101.SetRx();      // set Receive on
+            mySwitch.enableReceive(RX_PIN);   // Receiver on
+            Serial.print("Sent command raw: ");
+            Serial.print(freq);
+            Serial.print(" - ");
+            Serial.print(proto);
+            Serial.print(" - ");
+            Serial.print(rfCode);
+            Serial.print(" - ");
+            Serial.print(bits);
+            Serial.print("  :  ");
+            for (int b = bits; b > 0; b--) {
+                Serial.print(bitRead(rfCode, b - 1));
+            }
+            Serial.println();
+        }
+        return;
     }
 
-    if(freq>300.000 && freq<464.000 ) {
-      mySwitch.disableReceive();         // Receiver off
-      ELECHOUSE_cc1101.setMHZ(freq);
-      ELECHOUSE_cc1101.SetTx();           // set Transmit on
-      mySwitch.enableTransmit(TX_PIN);   // Transmit on
-      mySwitch.setRepeatTransmit(repeats); // transmission repetitions.
-      mySwitch.setProtocol(proto);        // send Received Protocol
-
-      mySwitch.send(rfCode, bits);      // send 12 bit code
-      mySwitch.disableTransmit();   // set Transmit off
-      ELECHOUSE_cc1101.setMHZ(RX_FREQ);
-      ELECHOUSE_cc1101.SetRx();      // set Receive on
-      mySwitch.enableReceive(RX_PIN);   // Receiver on
-      Serial.print("Sent command raw: ");
-      Serial.print(freq);
-      Serial.print(" - ");
-      Serial.print(proto);
-      Serial.print(" - ");
-      Serial.print(rfCode);
-      Serial.print(" - ");
-      Serial.print(bits);
-      Serial.print("  :  ");
-      for(int b=bits; b>0; b--) {
-        Serial.print(bitRead(rfCode,b-1));
-      }
-      Serial.println();
-    }
-    return;
-  }
- 
 #ifdef HAMPTONBAY
-  hamptonbayMQTT(topic,payloadChar,length);
+    hamptonbayMQTT(topic,payloadChar,length);
 #endif
 #ifdef HAMPTONBAY2
-  hamptonbay2MQTT(topic,payloadChar,length);
+    hamptonbay2MQTT(topic, payloadChar, length);
 #endif
 #ifdef HAMPTONBAY3
-  hamptonbay3MQTT(topic,payloadChar,length);
+    hamptonbay3MQTT(topic,payloadChar,length);
+#endif
+#ifdef RHINE
+    rhineMQTT(topic,payloadChar,length);
 #endif
 #ifdef FANIMATION
-  fanimationMQTT(topic,payloadChar,length);
+    fanimationMQTT(topic,payloadChar,length);
 #endif
 }
 
@@ -224,97 +236,118 @@ void reconnectMQTT() {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
     if (client.connect(MQTT_CLIENT_NAME, MQTT_USER, MQTT_PASS, STATUS_TOPIC, 0, true, "Offline")) {
-      Serial.println("connected");
-      // Once connected, publish an announcement...
-      client.publish(STATUS_TOPIC, "Online", true);
-      // ... and resubscribe
-      client.subscribe(CMND_TOPIC MQTT_CLIENT_NAME "/#");
+        Serial.println("connected");
+        // Once connected, publish an announcement...
+        client.publish(STATUS_TOPIC, "Online", true);
+        // ... and resubscribe
+        client.subscribe(CMND_TOPIC MQTT_CLIENT_NAME "/#");
 #ifdef HAMPTONBAY
-      hamptonbayMQTTSub(readMQTT);
+        hamptonbayMQTTSub(readMQTT);
 #endif
 #ifdef HAMPTONBAY2
-      hamptonbay2MQTTSub(readMQTT);
+        hamptonbay2MQTTSub(readMQTT);
 #endif
 #ifdef HAMPTONBAY3
-      hamptonbay3MQTTSub(readMQTT);
+        hamptonbay3MQTTSub(readMQTT);
+#endif
+#ifdef RHINE
+        rhineMQTTSub(readMQTT);
 #endif
 #ifdef FANIMATION
-      fanimationMQTTSub(readMQTT);
+        fanimationMQTTSub(readMQTT);
 #endif
-      setupDelay=millis()+5000;
-      readMQTT=false;
-      reconnectDelay=0;
+        setupDelay = millis() + 5000;
+        readMQTT = false;
+        reconnectDelay = 0;
     } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 18 seconds");
+        Serial.print("failed, rc=");
+        Serial.print(client.state());
+        Serial.println(" try again in 18 seconds");
     }
 }
 
 void SleepDelay(uint32_t mseconds) {
-  if (mseconds) {
-    for (; mseconds>0; mseconds--) {
-      delay(1);
-      if (Serial.available()) { break; }  // We need to service serial buffer ASAP as otherwise we get uart buffer overrun
-      if (mySwitch.available()) { break; }
+    if (mseconds) {
+        for (; mseconds > 0; mseconds--) {
+            delay(1);
+            if (Serial.available()) { break; }  // We need to service serial buffer ASAP as otherwise we get uart buffer overrun
+            if (mySwitch.available()) { break; }
+        }
+    } else {
+        delay(0);
     }
-  } else {
-    delay(0);
-  }
 }
 
 void setup() {
-  TelnetServer.begin();
-  Serial.begin(115200);
+    TelnetServer.begin();
+    Serial.begin(MONITOR_SPEED);
 
 #ifdef HAMPTONBAY
-  hamptonbaySetup();
+    hamptonbaySetup();
 #endif
 #ifdef HAMPTONBAY2
-  hamptonbay2Setup();
+    hamptonbay2Setup();
 #endif
 #ifdef HAMPTONBAY3
-  hamptonbay3Setup();
+    hamptonbay3Setup();
+#endif
+#ifdef RHINE
+    rhineSetup();
 #endif
 #ifdef FANIMATION
-  fanimationSetup();
+    fanimationSetup();
 #endif
 
-  ELECHOUSE_cc1101.Init();
-  ELECHOUSE_cc1101.setMHZ(RX_FREQ);
-  ELECHOUSE_cc1101.SetRx();
-  mySwitch.disableTransmit();
-  mySwitch.disableReceive();
+    Serial.println();
+    if (ELECHOUSE_cc1101.getCC1101()) {       // Check the CC1101 Spi connection.
+        Serial.println("Connection OK");
+    } else {
+        Serial.println("Connection Error");
+    }
 
-  setup_wifi();
-  client.setServer(MQTT_HOST, MQTT_PORT);
-  client.setCallback(callback);
+    ELECHOUSE_cc1101.Init();
+    ELECHOUSE_cc1101.setMHZ(RX_FREQ);
+    ELECHOUSE_cc1101.SetRx();
+    mySwitch.disableTransmit();
+    mySwitch.disableReceive();
 
-  mySwitch.enableReceive(RX_PIN);
+    setup_wifi();
+    client.setServer(MQTT_HOST, MQTT_PORT);
+    client.setCallback(callback);
 
-  ArduinoOTA.setHostname((const char *)HOSTNAME);
-  if(sizeof(OTA_PASS)>0)
-    ArduinoOTA.setPassword((const char *)OTA_PASS);
+    mySwitch.enableReceive(RX_PIN);
 
-  ArduinoOTA.onStart([]() {
-    Serial.println("OTA Start");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("OTA End");
-    Serial.println("Rebooting...");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r\n", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
+    ArduinoOTA.setHostname((const char *) HOSTNAME);
+    if (sizeof(OTA_PASS) > 0)
+        ArduinoOTA.setPassword((const char *) OTA_PASS);
+
+    ArduinoOTA.onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH) {
+            type = "sketch";
+        } else {  // U_FS
+            type = "filesystem";
+        }
+
+        // NOTE: if updating FS this would be the place to unmount FS using FS.end()
+        Serial.println("Start updating " + type);
+    });
+    ArduinoOTA.onEnd([]() {
+        Serial.println("OTA End");
+        Serial.println("Rebooting...");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r\n", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+        else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+    ArduinoOTA.begin();
 
 #ifdef DOORBELL1
   pinMode(DOORBELL1,INPUT_PULLUP);
@@ -331,96 +364,104 @@ void setup() {
 }
 
 void loop() {
-  unsigned long t = millis();
-  if (setupDelay>0 && setupDelay<t) {
+    unsigned long t = millis();
+    if (setupDelay > 0 && setupDelay < t) {
 #ifdef HAMPTONBAY
-    hamptonbaySetupEnd();
+        hamptonbaySetupEnd();
 #endif
 #ifdef HAMPTONBAY2
-    hamptonbay2SetupEnd();
+        hamptonbay2SetupEnd();
 #endif
 #ifdef HAMPTONBAY3
-    hamptonbay3SetupEnd();
+        hamptonbay3SetupEnd();
+#endif
+#ifdef RHINE
+        rhineSetupEnd();
 #endif
 #ifdef FANIMATION
-    fanimationSetupEnd();
+        fanimationSetupEnd();
 #endif
-    setupDelay=0;
-  }
-
-  // Handle received transmissions
-  if (mySwitch.available()) {
-    unsigned long rfCode =  mySwitch.getReceivedValue();        // save received Value
-    unsigned proto = mySwitch.getReceivedProtocol();     // save received Protocol
-    unsigned bits = mySwitch.getReceivedBitlength();     // save received Bitlength
-
-    sprintf(outTopic, "%s%s/rfreceived", STAT_TOPIC, MQTT_CLIENT_NAME);
-    sprintf(outPercent,"{proto:\"%u\", rfCode:\"%x%x\", bitlength:\"%u\"}",proto, (unsigned int)(rfCode>>16), (unsigned int)(rfCode&&0xffff), bits);
-    client.publish(outTopic, outPercent, false);
-
-    Serial.print(proto);
-    Serial.print(" - ");
-    Serial.print(rfCode);
-    Serial.print(" - ");
-    Serial.print(bits);
-    Serial.print("  :  ");
-    for(unsigned b=bits; b>0; b--) {
-      Serial.print(bitRead(rfCode,b-1));
+        setupDelay = 0;
+        Serial.println("setup complete");
     }
-    Serial.println();
-    
+
+    // Handle received transmissions
+    if (mySwitch.available()) {
+        unsigned long rfCode = mySwitch.getReceivedValue();        // save received Value
+        unsigned proto = mySwitch.getReceivedProtocol();     // save received Protocol
+        unsigned bits = mySwitch.getReceivedBitlength();     // save received Bitlength
+
+        sprintf(outTopic, "%s%s/rfreceived", STAT_TOPIC, MQTT_CLIENT_NAME);
+        sprintf(outPercent, "{proto:\"%u\", rfCode:\"%x%x\", bitlength:\"%u\"}", proto, (unsigned int) (rfCode >> 16),
+                (unsigned int) (rfCode && 0xffff), bits);
+        client.publish(outTopic, outPercent, false);
+
+        Serial.print(proto);
+        Serial.print(" - ");
+        Serial.print(rfCode);
+        Serial.print(" - ");
+        Serial.print(bits);
+        Serial.print("  :  ");
+        for (unsigned b = bits; b > 0; b--) {
+            Serial.print(bitRead(rfCode, b - 1));
+        }
+        Serial.println();
+
 #ifdef HAMPTONBAY
-    if(!ignorerf) hamptonbayRF(rfCode,proto,bits);
+        if(!ignorerf) hamptonbayRF(rfCode,proto,bits);
 #endif
 #ifdef HAMPTONBAY2
-    if(!ignorerf) hamptonbay2RF(rfCode,proto,bits);
+        if (!ignorerf) hamptonbay2RF(rfCode, proto, bits);
 #endif
 #ifdef HAMPTONBAY3
-    if(!ignorerf) hamptonbay3RF(rfCode,proto,bits);
+        if(!ignorerf) hamptonbay3RF(rfCode,proto,bits);
+#endif
+#ifdef RHINE
+        if(!ignorerf) rhineRF(rfCode,proto,bits);
 #endif
 #ifdef FANIMATION
-    if(!ignorerf) fanimationRF(rfCode,proto,bits);
+        if(!ignorerf) fanimationRF(rfCode,proto,bits);
 #endif
 
-    mySwitch.resetAvailable();
-  }
-  
-  if (!client.connected()) {
-#ifdef MQTT_REBOOT_SECONDS
-    if(reconnectReboot==0)
-      reconnectReboot=t+(MQTT_REBOOT_SECONDS*1000);
-#endif
-    if(reconnectDelay<t) {
-      reconnectMQTT();
-      if(reconnectDelay>0)
-        reconnectDelay=millis()+18000;
-      else
-        reconnectDelay=millis()+6000;
-#ifdef MQTT_REBOOT_SECONDS
-      if(reconnectReboot<t) { // disconnected from mqtt too long, reboot
-        ESP.restart();
-      }
-#endif
+        mySwitch.resetAvailable();
     }
-  } else {
-    if(reconnectReboot>0)
-      reconnectReboot=0;
-    client.loop();
-  }
 
-  ArduinoOTA.handle();
-  
+    if (!client.connected()) {
+#ifdef MQTT_REBOOT_SECONDS
+        if (reconnectReboot == 0)
+            reconnectReboot = t + (MQTT_REBOOT_SECONDS * 1000);
+#endif
+        if (reconnectDelay < t) {
+            reconnectMQTT();
+            if (reconnectDelay > 0)
+                reconnectDelay = millis() + 18000;
+            else
+                reconnectDelay = millis() + 6000;
+#ifdef MQTT_REBOOT_SECONDS
+            if (reconnectReboot < t) { // disconnected from mqtt too long, reboot
+                ESP.restart();
+            }
+#endif
+        }
+    } else {
+        if (reconnectReboot > 0)
+            reconnectReboot = 0;
+        client.loop();
+    }
+
+    ArduinoOTA.handle();
+
 #ifdef HEAP_DELAY_SECONDS
-  if(heapDelay<t) {
-    long hs = ESP.getFreeHeap();
-    heapDelay=t+(HEAP_DELAY_SECONDS*1000);
-    if(heapSize != hs) {
-      heapSize=hs;
-      sprintf(outTopic, "%s%s/heapsize", STAT_TOPIC, MQTT_CLIENT_NAME);
-      ltoa(heapSize,outPercent,10);
-      client.publish(outTopic, outPercent, false);
+    if (heapDelay < t) {
+        long hs = ESP.getFreeHeap();
+        heapDelay = t + (HEAP_DELAY_SECONDS * 1000);
+        if (heapSize != hs) {
+            heapSize = hs;
+            sprintf(outTopic, "%s%s/heapsize", STAT_TOPIC, MQTT_CLIENT_NAME);
+            ltoa(heapSize, outPercent, 10);
+            client.publish(outTopic, outPercent, false);
+        }
     }
-  }
 #endif
 
 #ifdef DOORBELL1
@@ -531,8 +572,8 @@ void loop() {
   }
 #endif
 
-  unsigned long looptime = millis()-t;
-  if(looptime<SLEEP_DELAY)
-    SleepDelay(SLEEP_DELAY-looptime);
-  
+    unsigned long looptime = millis() - t;
+    if (looptime < SLEEP_DELAY)
+        SleepDelay(SLEEP_DELAY - looptime);
+
 }

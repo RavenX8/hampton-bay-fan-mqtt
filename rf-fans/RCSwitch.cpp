@@ -44,7 +44,7 @@
 #if defined(ESP8266)
     // interrupt handler and related code must be in RAM on ESP8266,
     // according to issue #46.
-    #define RECEIVE_ATTR ICACHE_RAM_ATTR
+    #define RECEIVE_ATTR IRAM_ATTR
     #define VAR_ISR_ATTR
 #elif defined(ESP32)
     #define RECEIVE_ATTR IRAM_ATTR
@@ -92,7 +92,8 @@ static const RCSwitch::Protocol PROGMEM proto[] = {
   { 270, { 36,  1 }, {  1,  2 }, {  2,  1 }, true },     // protocol 11 (HT12E)
   { 320, { 36,  1 }, {  1,  2 }, {  2,  1 }, true },     // protocol 12 (SM5212)
   { 346, { 35,  1 }, {  1,  2 }, {  2,  1 }, true },     // protocol 13 (M1E-N 182khz, fanimation)
-  { 400, { 34,  1 }, {  1,  2 }, {  2,  1 }, true }      // protocol 14 (ax25-tx028, hamptonbay/dawnsun)
+  { 400, { 34,  1 }, {  1,  2 }, {  2,  1 }, true },     // protocol 14 (ax25-tx028, hamptonbay/dawnsun)
+  { 331, { 28,  1 }, {  1,  2 }, {  2,  1 }, true }      // protocol 15 (UC7262T6, CHQ7262T6, Home Decorators Collection)
 };
 
 enum {
