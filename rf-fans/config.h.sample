@@ -27,10 +27,17 @@
 // Use 6 speeds for fanimation Slinger
 //#define FANIMATION6
 
+// Compile in Rhine (303.875mhz)
+//#define RHINE
+
+// Use 6 speeds for Rhine Controller
+//#define RHINE_6SPEED
+
 #define HAMPTONBAY_BASE_TOPIC "hamptonbay"
 #define HAMPTONBAY2_BASE_TOPIC "hamptonbay2"
 #define HAMPTONBAY3_BASE_TOPIC "hamptonbay3"
 #define FANIMATION_BASE_TOPIC "fanimation"
+#define RHINE_BASE_TOPIC "rhine"
 
 // Doorbell pins, define to use
 #define DOORBELL1 0

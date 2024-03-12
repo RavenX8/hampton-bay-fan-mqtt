@@ -10,11 +10,14 @@
 #ifdef HAMPTONBAY
   #include "hamptonbay.h"
 #endif
+#ifdef HAMPTONBAY2
+  #include "hamptonbay2.h"
+#endif
 #ifdef HAMPTONBAY3
   #include "hamptonbay3.h"
 #endif
-#ifdef HAMPTONBAY2
-  #include "hamptonbay2.h"
+#ifdef RHINE
+  #include "rhine.h"
 #endif
 #ifdef FANIMATION
   #include "fanimation.h"
@@ -48,12 +51,13 @@
 #define FAN_MED 3
 #define FAN_LOW 5
 
-#define FAN_VI  1
-#define FAN_V   2
-#define FAN_IV  3
-#define FAN_III 4
-#define FAN_II  5
-#define FAN_I   6
+#define FAN_VI        1
+#define FAN_V         2
+#define FAN_IV        3
+#define FAN_III       4
+#define FAN_II        5
+#define FAN_I         6
+#define FAN_BREEZE    7
 
 #define FAN_PCT_HI 100
 #define FAN_PCT_MED 67
@@ -84,6 +88,8 @@ struct fan
   bool light2State;
   bool fanState;
   uint8_t fanSpeed;
+  uint8_t brightness;
+  uint16_t colorTemp;
 };
 
 extern RCSwitch mySwitch;

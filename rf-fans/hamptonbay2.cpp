@@ -66,7 +66,7 @@ static void transmitState(int fanId, int code) {
   // Build out RF code
   //   Code follows the 24 bit pattern
   //   111111000110aaaa011cccdd
-  //   Where a is the inversed/reversed dip setting, 
+  //   Where a is the inversed/reversed dip setting,
   //     ccc is the command (111 Power, 101 Fan, 100 Light, 011 Dim/Temp)
   //     dd is the data value
   int rfCode = 0xfc6000 | ((~fanId) &0x0f) << 8 | (code&0xff);
@@ -76,6 +76,7 @@ static void transmitState(int fanId, int code) {
   ELECHOUSE_cc1101.setMHZ(RX_FREQ);
   ELECHOUSE_cc1101.SetRx();      // set Receive on
   mySwitch.enableReceive(RX_PIN);   // Receiver on
+#ifdef DEBUG
   Serial.print("Sent command hamptonbay2: ");
   Serial.print(fanId);
   Serial.print(" ");
@@ -83,6 +84,7 @@ static void transmitState(int fanId, int code) {
     Serial.print(bitRead(rfCode,b-1));
   }
   Serial.println("");
+#endif
   postStateUpdate(fanId);
 }
 
